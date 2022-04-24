@@ -1,0 +1,9 @@
+batch-size: "10"
+
+oracle:
+  host: "erpntstdb03.kirklands.com"
+  port: "1521"
+  username: "mule_user"
+  password: ""
+  service-name: "rmstst1"
+ 

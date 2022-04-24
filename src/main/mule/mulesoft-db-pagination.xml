@@ -10,16 +10,74 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
 		<http:listener-connection host="0.0.0.0" port="8081" />
 	</http:listener-config>
 	<db:config name="Database_Config" doc:name="Database Config" doc:id="6497c9a8-52be-427d-8370-3708a4ffd06c" >
-		<db:oracle-connection host="erpntstdb03.kirklands.com" user="mule_user" serviceName="rmstst1"/>
+		<db:oracle-connection host="${oracle.host}" user="${oracle.username}" serviceName="${oracle.service-name}" password="${oracle.password}" port="${oracle.port}">
+			<reconnection failsDeployment="true" >
+				<reconnect />
+			</reconnection>
+		</db:oracle-connection>
 	</db:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="77d4f03f-931d-4daf-92d6-79f2f919ecd9" file="properties\config.yaml" />
 	<flow name="mulesoft-db-paginationFlow" doc:id="967fb049-1e53-431d-8953-4b7e9439faf2" >
 		<http:listener doc:name="Listener" doc:id="2e15c05f-1847-4a8c-936e-29c52090cd0b" config-ref="HTTP_Listener_config" path="pagination/oracle"/>
+		<ee:transform doc:name="save incoming dates, batch size and offset" doc:id="1c49aa7e-9642-4801-bea6-8ac2023e5e46" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="varIncomingData" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	start_date: attributes.queryParams.start_date,
+	end_date : attributes.queryParams.end_date,
+	batch_size: p('batch-size'),
+	offset: attributes.queryParams.offset default 0
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Build SQL Payload" doc:id="a0787802-8c06-4bdb-803d-04312700f942" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output text/plain
+---
+"SELECT attribute1,attribute2,acct_segment1,acct_segment2,acct_segment3,acct_segment4,acct_segment5,
+        user_je_source_name,pgm_name,date_created,accounting_date,entered_dr_amount,entered_cr_amount from
+    ( 
+SELECT NVL(attribute1,0) as attribute1
+    ,NVL(attribute2,0) as attribute2
+    , NVL(acct_segment1,0) as acct_segment1
+    , NVL(acct_segment2,0) as acct_segment2
+    , NVL(acct_segment3,0) as acct_segment3
+    , NVL(acct_segment4,0) as acct_segment4
+    , NVL(acct_segment5,0) as acct_segment5
+    , user_je_source_name
+    , NVL(pgm_name,' ') as pgm_name
+    , to_char(date_created,'yyyy-mm-dd hh:mi:ss') as date_created
+    , to_char(accounting_date, 'yyyy-mm-dd hh:mi:ss') as accounting_date
+    , round(entered_dr_amount,2) as entered_dr_amount
+    , round(entered_cr_amount,2) as entered_cr_amount
+    FROM krk_custom.stg_fif_gl_data
+    WHERE  to_char(date_created,'yyyymmdd') BETWEEN " ++ vars.varIncomingData.start_date ++ "  AND " ++ vars.varIncomingData.start_date ++ 
+    "AND NOT(Round(ENTERED_DR_AMOUNT,2)  = 0 AND ROUND(ENTERED_CR_AMOUNT,2) = 0)
+    AND ACCT_SEGMENT3 <> 50000
+    OFFSET "++ vars.varIncomingData.offset ++  " ROWS 
+    FETCH NEXT "++ vars.varIncomingData.batch_size ++ " ROWS ONLY
+)"]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
 		<db:select doc:name="Select" doc:id="5333e53d-751f-4462-840b-bba0432f88e9" config-ref="Database_Config">
-			<db:sql ><![CDATA[Select * from RMS13.RPM_PROMO_COMP
-WHERE Customer_type = 7
-OFFSET 16 ROWS 
-FETCH NEXT 6 ROWS ONLY]]></db:sql>
+			<db:sql ><![CDATA[#[payload]]]></db:sql>
 		</db:select>
+		<ee:transform doc:name="Collect query  metadata" doc:id="a9ce7d51-475e-4af0-8f61-e602fecb2782" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="varMedata" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
 		<ee:transform doc:name="Transform Message" doc:id="f99757fa-1e62-4188-b6d9-2619ddad14ab" >
 			<ee:message >
 				<ee:set-payload ><![CDATA[%dw 2.0
