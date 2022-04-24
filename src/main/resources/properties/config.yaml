@@ -1,4 +1,4 @@
-batch-size: "10"
+batch-size: "2000"
 
 oracle:
   host: "erpntstdb03.kirklands.com"

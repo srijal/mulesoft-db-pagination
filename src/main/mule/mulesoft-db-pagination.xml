@@ -64,26 +64,21 @@ SELECT NVL(attribute1,0) as attribute1
 )"]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<db:select doc:name="Select" doc:id="5333e53d-751f-4462-840b-bba0432f88e9" config-ref="Database_Config">
+		<db:select doc:name="Select : See if you can pass SQL on on connector itself. " doc:id="5333e53d-751f-4462-840b-bba0432f88e9" config-ref="Database_Config">
 			<db:sql ><![CDATA[#[payload]]]></db:sql>
 		</db:select>
-		<ee:transform doc:name="Collect query  metadata" doc:id="a9ce7d51-475e-4af0-8f61-e602fecb2782" >
-			<ee:message >
-			</ee:message>
-			<ee:variables >
-				<ee:set-variable variableName="varMedata" ><![CDATA[%dw 2.0
-output application/java
----
-{
-}]]></ee:set-variable>
-			</ee:variables>
-		</ee:transform>
 		<ee:transform doc:name="Transform Message" doc:id="f99757fa-1e62-4188-b6d9-2619ddad14ab" >
 			<ee:message >
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
 ---
-payload]]></ee:set-payload>
+{
+	count: sizeOf(payload),
+	has_more_records : true,
+	next_url : "/pagination/oracle?start_date="++ vars.varIncomingData.start_date ++"&end_date=" ++ vars.varIncomingData.end_date ++"&offset="++ sum ([vars.varIncomingData.offset,vars.varIncomingData.batch_size]),
+	data : payload
+}
+]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 		<logger level="INFO" doc:name="Logger" doc:id="f3442ee1-a0d2-433d-8d5a-af63f51c7e32" />
